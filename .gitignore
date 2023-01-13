@@ -1,0 +1,6 @@
+minimal_wayland_client
+*.d
+*.o
+core
+xdg-shell-client-protocol.h
+xdg-shell-protocol.c
