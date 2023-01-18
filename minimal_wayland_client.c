@@ -1,5 +1,7 @@
 //
-// Minimal wayland client.
+// (Almost) minimal wayland client.
+// Client code that creates a EGL surface, and draws in it.
+// In addition it uses the dmabuf protocol to list the supported pixel formats.
 //
 // (c)2023 by Bram Stolk (b.stolk@gmail.com)
 //
@@ -20,6 +22,8 @@
 
 #include "xdg-shell-client-protocol.h" // Include code generated with wayland-scanner.
 
+#include "linux-dma-protocol.h"
+
 
 // OpenGLES
 
@@ -38,6 +42,8 @@ static struct wl_region*	region;
 static struct xdg_wm_base*	wm_base;
 static struct xdg_surface*	xdg_surface;
 static struct xdg_toplevel*	xdg_toplevel;
+
+static struct zwp_linux_dmabuf_v1* dmabuf;
 
 // Application
 
@@ -116,6 +122,54 @@ static const struct xdg_wm_base_listener xdg_wm_base_listener =
 };
 
 
+// dma buf protocol
+
+#if 0
+static void params_created(void* data, struct zwp_linux_buffer_params_v1* params, struct wl_buffer* new_buffer)
+{
+	(void)data;
+	(void)params;
+	(void)new_buffer;
+	fprintf(stderr,"dmabuf params created\n");
+}
+
+
+static void params_failed(void* data, struct zwp_linux_buffer_params_v1* params)
+{
+	(void)data;
+	(void)params;
+	fprintf(stderr,"dmabuf params creation failed.\n");
+}
+
+
+static const struct zwp_linux_buffer_params_v1_listener params_create_listener =
+{
+	.created = params_created,
+	.failed  = params_failed,
+};
+#endif
+
+
+static void dmabuf_modifier(void* data, struct zwp_linux_dmabuf_v1* zwp_linux_dmabuf, uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo)
+{
+	(void)data;
+	(void)zwp_linux_dmabuf;
+	const uint64_t modifier = modifier_lo | ((uint64_t)modifier_hi) << 32UL;
+	if (modifier == 0)
+		fprintf
+		(
+			stderr,
+			"dmabuf listener found format %c%c%c%c\n",
+			(format>>0)&0xff, (format>>8)&0xff, (format>>16)&0xff, (format>>24)&0xff
+		);
+}
+
+
+static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
+	.modifier = dmabuf_modifier,
+};
+
+
 // registry handling
 
 static void global_registry_handler
@@ -137,8 +191,12 @@ static void global_registry_handler
 	} else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
 		wm_base = wl_registry_bind(registry, id, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wm_base, &xdg_wm_base_listener, NULL);
+	} else if (strcmp(interface, zwp_linux_dmabuf_v1_interface.name) == 0) {
+		dmabuf = wl_registry_bind(registry, id, &zwp_linux_dmabuf_v1_interface, 3);
+		zwp_linux_dmabuf_v1_add_listener(dmabuf, &dmabuf_listener, 0);
 	}
 }
+
 
 static void global_registry_remover
 (
@@ -157,6 +215,7 @@ static const struct wl_registry_listener registry_listener =
 	global_registry_handler,
 	global_registry_remover
 };
+
 
 
 // OpenGL ES code

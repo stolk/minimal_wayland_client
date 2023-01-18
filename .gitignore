@@ -4,3 +4,5 @@ minimal_wayland_client
 core
 xdg-shell-client-protocol.h
 xdg-shell-protocol.c
+linux-dma-protocol.c
+linux-dma-protocol.h
