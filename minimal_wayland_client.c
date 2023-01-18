@@ -149,6 +149,14 @@ static const struct zwp_linux_buffer_params_v1_listener params_create_listener =
 };
 #endif
 
+static void dmabuf_format(void* data, struct zwp_linux_dmabuf_v1* zwp_linux_dmabuf, uint32_t format)
+{
+	// DEPRECATED, but still required to be part of protocol: On mutter, it will abort without it.
+	(void)data;
+	(void)zwp_linux_dmabuf;
+	(void)format;
+}
+
 
 static void dmabuf_modifier(void* data, struct zwp_linux_dmabuf_v1* zwp_linux_dmabuf, uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo)
 {
@@ -166,6 +174,7 @@ static void dmabuf_modifier(void* data, struct zwp_linux_dmabuf_v1* zwp_linux_dm
 
 
 static const struct zwp_linux_dmabuf_v1_listener dmabuf_listener = {
+	.format = dmabuf_format,
 	.modifier = dmabuf_modifier,
 };
 
