@@ -290,6 +290,11 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 
 	vid_buffer_type = plane_count > 1 ? V4L2_CAP_VIDEO_CAPTURE_MPLANE : V4L2_CAP_VIDEO_CAPTURE;
 
+	// It's not clear to me why DMABUF access does not work here.
+	// Why do we have to do MMAP first?
+	const enum v4l2_memory memory_access_type = V4L2_MEMORY_MMAP;
+	//const enum v4l2_memory memory_access_type = V4L2_MEMORY_DMABUF;
+
 	// See what current format is.
 	struct v4l2_format current_format;
 	memset(&current_format, 0, sizeof(current_format));
@@ -316,8 +321,7 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 	struct v4l2_requestbuffers request;
 	memset(&request, 0, sizeof(request));
 	request.type = vid_buffer_type;
-	request.memory = V4L2_MEMORY_MMAP;
-	//request.memory = V4L2_MEMORY_DMABUF;
+	request.memory = memory_access_type;
 	request.count = vid_num_buffers * vid_num_planes;
 	if (xioctl(vid_fd, VIDIOC_REQBUFS, &request) < 0)
 	{
@@ -340,8 +344,7 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 		struct v4l2_buffer* buf = vid_buffers + b;
 		memset(buf, 0, sizeof(struct v4l2_buffer));
 		buf->type = vid_buffer_type;
-		buf->memory = V4L2_MEMORY_MMAP;
-		//buf->memory = V4L2_MEMORY_DMABUF;
+		buf->memory = memory_access_type;
 		buf->index = b;
 		if (xioctl(vid_fd, VIDIOC_QUERYBUF, buf) < 0)
 		{
@@ -363,13 +366,6 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 			close(vid_fd);
 			return -1;
 		}
-#if 0
-		fprintf(stderr, "VIDIOC_QBUF returned plane count %d\n", buf.length);
-		for (uint32_t i=0; i<buf.length; ++i)
-		{
-			fprintf(stderr, "plane %d: offset %d\n", i, buf.m.planes[i].data_offset);
-		}
-#endif
 
 		// Export the dma buffers of the video device.
 		struct v4l2_exportbuffer exp;
@@ -581,6 +577,11 @@ static void cleanup_resources()
 
 int main(int argc, char* argv[])
 {
+	if (argc != 3)
+	{
+		fprintf(stderr, "Usage: /dev/video0 NV12\n");
+		exit(1);
+	}
 	assert(argc==3);
 	const char* devname = argv[1];
 	const char* fourcc = argv[2];

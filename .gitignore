@@ -1,4 +1,5 @@
 minimal_wayland_client
+minimal_nv12
 *.d
 *.o
 core
