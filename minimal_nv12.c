@@ -45,7 +45,8 @@ static int			vid_fd;
 static uint32_t			vid_fourcc;
 static enum v4l2_buf_type	vid_buffer_type;
 static int			vid_num_planes;
-//static uint32_t			vid_stride;
+static uint32_t			vid_resolution[2];
+static uint32_t			vid_strides[VIDEO_MAX_PLANES];
 static struct v4l2_buffer	vid_buffers[MAXBUF];
 static struct v4l2_plane	vid_planes[MAXBUF][VIDEO_MAX_PLANES];
 static const int		vid_num_buffers = MAXBUF;
@@ -65,9 +66,9 @@ static struct zwp_linux_dmabuf_v1* dmabuf;
 
 // Application
 
-static int32_t			winw = 512;
-static int32_t			winh = 512;
-static int			done = 0;
+static int32_t			winw = 1280;
+static int32_t			winh =  720;
+static int			done =    0;
 
 
 // xdg toplevel handling
@@ -305,6 +306,9 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 		close(vid_fd);
 		return -1;
 	}
+	vid_resolution[0] = current_format.fmt.pix.width;
+	vid_resolution[1] = current_format.fmt.pix.height;
+	vid_strides[0] = current_format.fmt.pix.bytesperline;
 	const uint32_t fourcc = current_format.fmt.pix.pixelformat;
 	fprintf
 	(
@@ -315,6 +319,12 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 		(fourcc>> 8) & 0xff,
 		(fourcc>>16) & 0xff,
 		(fourcc>>24) & 0xff
+	);
+	fprintf
+	(
+		stderr,
+		"Current resolution: %dx%d with stride %d\n",
+		vid_resolution[0], vid_resolution[1], vid_strides[0]
 	);
 
 	vid_num_planes = plane_count;
@@ -352,7 +362,7 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 			close(vid_fd);
 			return 0;
 		}
-		fprintf(stderr, "buffer %d has type 0x%x size %u and fd %d\n", b, buf->type, buf->length, buf->m.fd);
+		fprintf(stderr, "buffer %d has type 0x%x size %u and offset %08x\n", b, buf->type, buf->length, buf->m.offset);
 
 		if (vid_num_planes > 1)
 		{
@@ -387,6 +397,7 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 				return -1;
 			}
 			vid_dma_fds[b][p] = exp.fd;
+			fprintf(stderr, "Buffer %d plane %d uses fd %d\n", b, p, vid_dma_fds[b][p]);
 		}
 	}
 	fprintf(stderr, "Exported %d dma buffers from video device.\n", vid_num_buffers * vid_num_planes);
@@ -395,16 +406,17 @@ int setup_video(const char* devname, const uint32_t required_format, const int p
 
 // dmabuf code
 
-void create_dma_buffer(uint32_t format, int num_planes)
+void create_dma_buffer(int buf_nr, int plane_nr)
 {
+	const int fd = vid_dma_fds[buf_nr][plane_nr];
 	struct zwp_linux_buffer_params_v1* params = 0;
 	uint64_t modifier = 0;
 	params = zwp_linux_dmabuf_v1_create_params(dmabuf);
-	for (int i=0; i<num_planes; ++i)
+	for (int i=0; i<vid_num_planes; ++i)
 	{
-		int fd = 0;
-		int stride = 1280;
+		int stride = vid_strides[0];
 		int offset = 0;
+		fprintf(stderr, "adding parameter fd=%d plane=%d offset=%d stride=%d\n", fd, i, offset, stride);
 		zwp_linux_buffer_params_v1_add
 		(
 			params,
@@ -422,11 +434,19 @@ void create_dma_buffer(uint32_t format, int num_planes)
 	zwp_linux_buffer_params_v1_create
 	(
 		params,
-		winw,
-		winh,
-		format,
+		vid_resolution[0],
+		vid_resolution[1],
+		vid_fourcc,
 		flags
 	);
+}
+
+
+static void create_dma_buffers(void)
+{
+	for (int b=0; b<vid_num_buffers; ++b)
+		for (int p=0; p<vid_num_planes; ++p)
+			create_dma_buffer(b, p);
 }
 
 // OpenGL ES code
@@ -603,11 +623,12 @@ int main(int argc, char* argv[])
 		exit(3);
 	}
 
-const uint32_t format = (fourcc[0]<<0) | (fourcc[1]<<8) | (fourcc[2]<<16) | (fourcc[3]<<24);
-int vr = setup_video(devname, format, 1);
-assert(vr>=0);
-fprintf(stderr, "v4l2 connected.\n");
-//create_dma_buffer(format, 2);
+	const uint32_t format = (fourcc[0]<<0) | (fourcc[1]<<8) | (fourcc[2]<<16) | (fourcc[3]<<24);
+	int vr = setup_video(devname, format, 1);
+	assert(vr>=0);
+	fprintf(stderr, "v4l2 connected.\n");
+
+	create_dma_buffers();
 
 	xdg_surface = xdg_wm_base_get_xdg_surface(wm_base, surface);
 	assert(xdg_surface);
