@@ -57,6 +57,14 @@ dmabuf listener found format AB4H
 dmabuf listener found format XB4H
 ```
 
+
+## Dependencies
+
+wayland-protocols
+
+wayland-scanner (from libwayland-bin)
+
+
 ## License
 
 MIT

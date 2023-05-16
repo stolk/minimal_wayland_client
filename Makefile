@@ -14,7 +14,7 @@ minimal_nv12.o \
 xdg-shell-protocol.o \
 linux-dma-protocol.o
 
-all: xdg-shell-client-protocol.h minimal_wayland_client minimal_nv12
+all: xdg-shell-client-protocol.h linux-dma-protocol.h linux-dma-protocol.c minimal_wayland_client minimal_nv12
 
 minimal_wayland_client: $(OBJS0)
 	$(CC) -o minimal_wayland_client $(OBJS0) -lwayland-client -lwayland-egl -lEGL -lGLESv2
