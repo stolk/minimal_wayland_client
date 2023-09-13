@@ -64,6 +64,13 @@ wayland-protocols
 
 wayland-scanner (from libwayland-bin)
 
+libwayland-dev
+
+libegl-dev
+
+libgles2-mesa-dev
+
+libxdg-basedir-dev
 
 ## License
 
